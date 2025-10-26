@@ -1,15 +1,21 @@
 import os
 import gdown
+import streamlit as st
 
+# -----------------------------
+# Download Model with Spinner
+# -----------------------------
 MODEL_PATH = "shape_predictor_68_face_landmarks.dat"
+MODEL_URL = "https://drive.google.com/uc?id=1ZLh3RZxngbB-R57x_55Uos36gW7Z6l9L"
 
-# Check if model exists, otherwise download from Google Drive
 if not os.path.exists(MODEL_PATH):
-    print("Downloading Dlib model (this happens only once)...")
-    url = "https://drive.google.com/uc?id=1ZLh3RZxngbB-R57x_55Uos36gW7Z6l9L"
-    gdown.download(url, MODEL_PATH, quiet=False)
-    print("Download complete!")
+    with st.spinner("🔽 Downloading Dlib face landmark model (this happens only once)..."):
+        gdown.download(MODEL_URL, MODEL_PATH, quiet=False)
+    st.success("✅ Model downloaded successfully!")
 
+# -----------------------------
+# Imports after model download
+# -----------------------------
 import av
 import cv2
 import dlib
@@ -18,20 +24,28 @@ import numpy as np
 from scipy.spatial import distance
 from imutils import face_utils
 from pygame import mixer
-import streamlit as st
 from streamlit_webrtc import webrtc_streamer, VideoProcessorBase, RTCConfiguration
 
-# Initialize mixer
-mixer.init()
-mixer.music.load("music.wav")
+# -----------------------------
+# Safe audio initialization
+# -----------------------------
+try:
+    mixer.init()
+    mixer.music.load("music.wav")
+    AUDIO_ENABLED = True
+except Exception as e:
+    st.warning("⚠️ Audio alerts disabled (no sound device in cloud).")
+    print("Audio init failed:", e)
+    AUDIO_ENABLED = False
 
-# EAR threshold and frame check
+# -----------------------------
+# Drowsiness Detection Config
+# -----------------------------
 THRESH = 0.25
 FRAME_CHECK = 20
 
-# Dlib detectors
 detect = dlib.get_frontal_face_detector()
-predict = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
+predict = dlib.shape_predictor(MODEL_PATH)
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_68_IDXS["left_eye"]
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_68_IDXS["right_eye"]
 
@@ -41,10 +55,15 @@ def eye_aspect_ratio(eye):
     C = distance.euclidean(eye[0], eye[3])
     return (A + B) / (2.0 * C)
 
+# -----------------------------
+# Streamlit UI
+# -----------------------------
 st.title("😴 Real-Time Drowsiness Detection System")
-st.markdown("Close your eyes for a few seconds to trigger the alert.")
+st.markdown("Close your eyes for a few seconds to trigger the alert 🚨")
 
-RTC_CONFIGURATION = RTCConfiguration({"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]})
+RTC_CONFIGURATION = RTCConfiguration({
+    "iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]
+})
 
 class DrowsinessDetector(VideoProcessorBase):
     def __init__(self):
@@ -73,11 +92,13 @@ class DrowsinessDetector(VideoProcessorBase):
                 if self.flag >= FRAME_CHECK:
                     cv2.putText(frm, "DROWSINESS ALERT!!!", (10, 30),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                    if not mixer.music.get_busy():
+                    if AUDIO_ENABLED and not mixer.music.get_busy():
                         mixer.music.play()
             else:
                 self.flag = 0
-                mixer.music.stop()
+                if AUDIO_ENABLED:
+                    mixer.music.stop()
+
         return av.VideoFrame.from_ndarray(frm, format="bgr24")
 
 webrtc_streamer(
