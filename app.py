@@ -1,3 +1,15 @@
+import os
+import gdown
+
+MODEL_PATH = "shape_predictor_68_face_landmarks.dat"
+
+# Check if model exists, otherwise download from Google Drive
+if not os.path.exists(MODEL_PATH):
+    print("Downloading Dlib model (this happens only once)...")
+    url = "https://drive.google.com/uc?id=1ZLh3RZxngbB-R57x_55Uos36gW7Z6l9L"
+    gdown.download(url, MODEL_PATH, quiet=False)
+    print("Download complete!")
+
 import av
 import cv2
 import dlib
