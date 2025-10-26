@@ -1,0 +1,8 @@
+streamlit
+streamlit-webrtc
+opencv-python
+dlib-bin
+imutils
+scipy
+pygame
+numpy
